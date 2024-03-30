@@ -202,12 +202,20 @@ app.get('/prompt', async (req, res) => {
             return res.status(403).json({ error: 'Invalid Android ID.' });
         }
 
-        const user = await User.findOne({ username: androidId });
+        let user = await User.findOne({ username: androidId });
 
-        if (!user || user.userType === 'BANNED') {
+        // If the user is not found, create a new user with status "FREE"
+        if (!user) {
+            const expirationDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+            user = await User.create({ username: androidId, lastRequestTimestamp: Date.now(), requestsMade: 1, userType: 'FREE', premiumExpiration: expirationDate });
+        }
+
+        // If the user is banned, return an error
+        if (user.userType === 'BANNED') {
             return res.status(403).json({ error: 'User is banned. Upgrade to pro to access the service.' });
         }
 
+        // If the user is a free user and has exceeded the daily limit, return an error
         if (user.userType === 'FREE' && user.requestsMade >= 3) {
             return res.status(403).json({ error: 'Daily limit exceeded for free users. Upgrade to pro for unlimited access.' });
         }
@@ -230,8 +238,7 @@ app.get('/prompt', async (req, res) => {
         }
 
         res.json({ code: 200, url: imageUrl });
-    } catch (error)
-      {
+    } catch (error) {
         console.error("Internal server error:", error);
         res.status(500).json({ error: 'Internal server error. Please try again later.' });
     }
