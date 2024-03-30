@@ -60,6 +60,16 @@ async function isValidAndroidId(androidId) {
     return true;
 }
 
+app.get('/list?ban', async (req, res) => {
+    try {
+        const bannedUsers = await User.find({ userType: 'BANNED' });
+        res.json(bannedUsers);
+    } catch (error) {
+        console.error("Error retrieving list of banned users:", error);
+        res.status(500).json({ error: 'Internal server error. Please try again later.' });
+    }
+});
+
 app.get('/add', async (req, res) => {
     const androidId = req.query.id;
 
