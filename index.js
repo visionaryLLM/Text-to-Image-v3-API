@@ -60,15 +60,21 @@ async function isValidAndroidId(androidId) {
     return true;
 }
 
-app.get('/list?ban', async (req, res) => {
+app.get('/banlist', async (req, res) => {
     try {
         const bannedUsers = await User.find({ userType: 'BANNED' });
-        res.json(bannedUsers);
+
+        // Extracting user Android IDs from bannedUsers
+        const bannedUserIds = bannedUsers.map(user => user.username);
+
+        // Returning JSON response with status code 200 and list of banned user IDs
+        res.status(200).json({ code: "200", bannedUsers: bannedUserIds });
     } catch (error) {
         console.error("Error retrieving list of banned users:", error);
         res.status(500).json({ error: 'Internal server error. Please try again later.' });
     }
 });
+
 
 app.get('/add', async (req, res) => {
     const androidId = req.query.id;
