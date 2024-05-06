@@ -61,9 +61,10 @@ async function isValidAndroidId(androidId) {
 }
 
 async function isValidIP(ipAddress) {
-    // Custom IP address validation logic
-    // Implement as per your requirements
+    const ipv4Regex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    return ipv4Regex.test(ipAddress);
 }
+
 
 async function checkProxyOrVPN(ipAddress) {
     // Custom logic to check if the IP is from a proxy or VPN
