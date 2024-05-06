@@ -197,6 +197,24 @@ app.get('/prompt', async (req, res) => {
     }
 
     try {
+        // Check if the IP address is valid using ipapi
+        const response = await fetch(`https://ipapi.co/${ipAddress}/json/`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch IP information.');
+        }
+        
+        const ipData = await response.json();
+
+        // Check if the IP is from a proxy or VPN
+        if (ipData.proxy || ipData.vpn) {
+            return res.status(403).json({ error: 'Proxy or VPN detected. Please use a valid IP address.' });
+        }
+
+        // Check if the IP is real
+        if (!ipData.latitude || !ipData.longitude) {
+            return res.status(403).json({ error: 'Invalid IP address. Please use a real IP address.' });
+        }
+
         const isValidId = isValidAndroidId(androidId);
         if (!isValidId) {
             return res.status(403).json({ error: 'Invalid Android ID.' });
@@ -243,6 +261,7 @@ app.get('/prompt', async (req, res) => {
         res.status(500).json({ error: 'Internal server error. Please try again later.' });
     }
 });
+
 
 async function getProLLMResponse(prompt) {
     try {
