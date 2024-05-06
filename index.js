@@ -200,12 +200,12 @@ app.get('/prompt', async (req, res) => {
 
     try {
         // Check if the IP address is valid using ipapi
-        const response = await fetch(`https://ipapi.co/${ipAddress}/json/`);
-        if (!response.ok) {
+        const ipResponse = await fetch(`https://ipapi.co/${ipAddress}/json/`);
+        if (!ipResponse.ok) {
             throw new Error('Failed to fetch IP information.');
         }
         
-        const ipData = await response.json();
+        const ipData = await ipResponse.json();
 
         // Check if the IP is from a proxy or VPN
         if (ipData.proxy || ipData.vpn) {
@@ -217,15 +217,17 @@ app.get('/prompt', async (req, res) => {
             return res.status(403).json({ error: 'Invalid IP address. Please use a real IP address.' });
         }
 
+        // Check if the Android ID is valid
         const isValidId = isValidAndroidId(androidId);
         if (!isValidId) {
             return res.status(403).json({ error: 'Invalid Android ID.' });
         }
 
+        // Find or create the user based on Android ID
         let user = await User.findOne({ username: androidId });
 
-        // If the user is not found, create a new user with status "FREE"
         if (!user) {
+            // If the user does not exist, create a new user with status "FREE"
             const expirationDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
             user = await User.create({ username: androidId, lastRequestTimestamp: Date.now(), requestsMade: 1, userType: 'FREE', premiumExpiration: expirationDate });
         }
@@ -240,17 +242,16 @@ app.get('/prompt', async (req, res) => {
             return res.status(403).json({ error: 'Daily limit exceeded for free users. Upgrade to pro for unlimited access.' });
         }
 
+        // Update user's request count and timestamp
         const now = Date.now();
-
-        // Reset requests made if it's a new day
         if (user.lastRequestTimestamp && !isSameDay(now, user.lastRequestTimestamp)) {
             user.requestsMade = 0;
         }
-
         user.requestsMade++;
         user.lastRequestTimestamp = now;
         await user.save();
 
+        // Generate the LLM response and return the image URL
         const imageUrl = await getProLLMResponse(prompt);
         if (imageUrl.error) {
             console.error("Error generating LLM response:", imageUrl.error);
@@ -263,6 +264,7 @@ app.get('/prompt', async (req, res) => {
         res.status(500).json({ error: 'Internal server error. Please try again later.' });
     }
 });
+
 
 
 async function getProLLMResponse(prompt) {
