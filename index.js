@@ -60,14 +60,20 @@ async function isValidAndroidId(androidId) {
     return true;
 }
 
+async function isValidIP(ipAddress) {
+    // Custom IP address validation logic
+    // Implement as per your requirements
+}
+
+async function checkProxyOrVPN(ipAddress) {
+    // Custom logic to check if the IP is from a proxy or VPN
+    // Implement as per your requirements
+}
+
 app.get('/banlist', async (req, res) => {
     try {
         const bannedUsers = await User.find({ userType: 'BANNED' });
-
-        // Extracting user Android IDs from bannedUsers
         const bannedUserIds = bannedUsers.map(user => user.username);
-
-        // Returning JSON response with status code 200 and list of banned user IDs
         res.status(200).json({ code: "200", bannedUsers: bannedUserIds });
     } catch (error) {
         console.error("Error retrieving list of banned users:", error);
@@ -135,20 +141,16 @@ app.get('/info/:androidId', async (req, res) => {
     try {
         const androidId = req.params.androidId;
 
-        // Validate Android ID format
         if (!isValidAndroidId(androidId)) {
             return res.status(400).json({ error: 'Invalid Android ID format.' });
         }
 
-        // Find the user in the database
         const user = await User.findOne({ username: androidId });
 
-        // If user not found, return error
         if (!user) {
             return res.status(404).json({ error: 'User not found.' });
         }
 
-        // Return user details
         res.json({
             username: user.username,
             lastRequestTimestamp: user.lastRequestTimestamp,
@@ -192,57 +194,41 @@ app.get('/prompt', async (req, res) => {
     const ipAddress = req.query.ip;
     const androidId = req.query.id;
 
-    console.log(ipAddress);
-
     if (!prompt || !ipAddress || !androidId) {
         return res.status(400).json({ error: 'Prompt, IP address, and Android ID are required.' });
     }
 
     try {
-        // Check if the IP address is valid using ipapi
-        const ipResponse = await fetch(`https://ipapi.co/${ipAddress}/json/`);
-        if (!ipResponse.ok) {
-            throw new Error('Failed to fetch IP information.');
+        const isValidIPAddr = await isValidIP(ipAddress);
+        if (!isValidIPAddr) {
+            return res.status(403).json({ error: 'Invalid IP address.' });
         }
-        
-        const ipData = await ipResponse.json();
 
-        // Check if the IP is from a proxy or VPN
-        if (ipData.proxy || ipData.vpn) {
+        const isProxyOrVPN = await checkProxyOrVPN(ipAddress);
+        if (isProxyOrVPN) {
             return res.status(403).json({ error: 'Proxy or VPN detected. Please use a valid IP address.' });
         }
 
-        // Check if the IP is real
-        if (!ipData.latitude || !ipData.longitude) {
-            return res.status(403).json({ error: 'Invalid IP address. Please use a real IP address.' });
-        }
-
-        // Check if the Android ID is valid
         const isValidId = isValidAndroidId(androidId);
         if (!isValidId) {
             return res.status(403).json({ error: 'Invalid Android ID.' });
         }
 
-        // Find or create the user based on Android ID
         let user = await User.findOne({ username: androidId });
 
         if (!user) {
-            // If the user does not exist, create a new user with status "FREE"
             const expirationDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
             user = await User.create({ username: androidId, lastRequestTimestamp: Date.now(), requestsMade: 1, userType: 'FREE', premiumExpiration: expirationDate });
         }
 
-        // If the user is banned, return an error
         if (user.userType === 'BANNED') {
             return res.status(403).json({ error: 'User is banned. Upgrade to pro to access the service.' });
         }
 
-        // If the user is a free user and has exceeded the daily limit, return an error
         if (user.userType === 'FREE' && user.requestsMade >= 3) {
             return res.status(403).json({ error: 'Daily limit exceeded for free users. Upgrade to pro for unlimited access.' });
         }
 
-        // Update user's request count and timestamp
         const now = Date.now();
         if (user.lastRequestTimestamp && !isSameDay(now, user.lastRequestTimestamp)) {
             user.requestsMade = 0;
@@ -251,7 +237,6 @@ app.get('/prompt', async (req, res) => {
         user.lastRequestTimestamp = now;
         await user.save();
 
-        // Generate the LLM response and return the image URL
         const imageUrl = await getProLLMResponse(prompt);
         if (imageUrl.error) {
             console.error("Error generating LLM response:", imageUrl.error);
@@ -264,8 +249,6 @@ app.get('/prompt', async (req, res) => {
         res.status(500).json({ error: 'Internal server error. Please try again later.' });
     }
 });
-
-
 
 async function getProLLMResponse(prompt) {
     try {
