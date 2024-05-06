@@ -192,6 +192,8 @@ app.get('/prompt', async (req, res) => {
     const ipAddress = req.query.ip;
     const androidId = req.query.id;
 
+    console.log(ipAddress);
+
     if (!prompt || !ipAddress || !androidId) {
         return res.status(400).json({ error: 'Prompt, IP address, and Android ID are required.' });
     }
