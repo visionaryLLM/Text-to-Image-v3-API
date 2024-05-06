@@ -41,6 +41,7 @@ async function checkIPAddress(req, res, next) {
     const ipAddress = req.query.ip;
 
     if (!ipAddress) {
+        console.log('IP address is required.');
         return res.status(400).json({ error: 'IP address is required.' });
     }
 
@@ -54,18 +55,20 @@ async function checkIPAddress(req, res, next) {
 
         // Check if IP is from a proxy or VPN
         if (data.proxy || data.vpn) {
+            console.log('Proxy or VPN detected. Please use a valid IP address.');
             return res.status(403).json({ error: 'Proxy or VPN detected. Please use a valid IP address.' });
         }
 
         // Check if IP is real
         if (!data.latitude || !data.longitude) {
+            console.log('Invalid IP address. Please use a real IP address.');
             return res.status(403).json({ error: 'Invalid IP address. Please use a real IP address.' });
         }
 
         // Proceed to the next middleware if IP is valid
         next();
     } catch (error) {
-        console.error("Error checking IP address:", error);
+        console.log("Error checking IP address:", error.message);
         res.status(500).json({ error: 'Internal server error. Please try again later.' });
     }
 }
@@ -233,6 +236,10 @@ app.get('/prompt', checkIPAddress, async (req, res) => {
     const prompt = req.query.prompt;
     const ipAddress = req.query.ip;
     const androidId = req.query.id;
+
+    // Log Android ID and User IP
+    console.log('Android ID:', androidId);
+    console.log('User IP:', ipAddress);
 
     if (!prompt || !ipAddress || !androidId) {
         return res.status(400).json({ error: 'Prompt, IP address, and Android ID are required.' });
