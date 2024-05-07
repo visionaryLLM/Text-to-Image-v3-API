@@ -190,57 +190,48 @@ app.get('/ban/:androidId', async (req, res) => {
     }
 });
 
-app.get('/prompt', async (req, res) => {
-    const prompt = req.query.prompt;
-    const ipAddress = req.query.ip;
-    const androidId = req.query.id;
+app.post('/prompt', async (req, res) => {
+    const { prompt, ip, androidId, uid } = req.body;
 
-    if (!prompt || !ipAddress || !androidId) {
-        return res.status(400).json({ error: 'Prompt, IP address, and Android ID are required.' });
+    if (!prompt || !ip || (!androidId && !uid)) {
+        return res.status(400).json({ error: 'Prompt, IP address, and either Android ID or UID are required.' });
     }
 
     try {
-        const isValidIPAddr = await isValidIP(ipAddress);
-        if (!isValidIPAddr) {
-            return res.status(403).json({ error: 'Invalid IP address.' });
-        }
-
-        const isProxyOrVPN = await checkProxyOrVPN(ipAddress);
-        if (isProxyOrVPN) {
-            return res.status(403).json({ error: 'Proxy or VPN detected. Please use a valid IP address.' });
-        }
-
-        const isValidId = isValidAndroidId(androidId);
+        const isValidId = androidId ? isValidAndroidId(androidId) : true;
         if (!isValidId) {
             return res.status(403).json({ error: 'Invalid Android ID.' });
         }
 
-        let user = await User.findOne({ username: androidId });
+        const userByAndroidId = androidId ? await User.findOne({ username: androidId }) : null;
+        const userByUid = uid ? await User.findOne({ uid: uid }) : null;
+
+        const user = userByAndroidId || userByUid;
 
         if (!user) {
             const expirationDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-            user = await User.create({ username: androidId, lastRequestTimestamp: Date.now(), requestsMade: 1, userType: 'FREE', premiumExpiration: expirationDate });
+            const newUser = { lastRequestTimestamp: Date.now(), requestsMade: 1, userType: 'FREE', premiumExpiration: expirationDate };
+            if (androidId) newUser.username = androidId;
+            if (uid) newUser.uid = uid;
+            await User.create(newUser);
+        } else {
+            if (user.userType === 'BANNED') {
+                return res.status(403).json({ error: 'User is banned. Upgrade to pro to access the service.' });
+            }
+            if (user.userType === 'FREE' && user.requestsMade >= 3) {
+                return res.status(403).json({ error: 'Daily limit exceeded for free users. Upgrade to pro for unlimited access.' });
+            }
+            const now = Date.now();
+            if (user.lastRequestTimestamp && !isSameDay(now, user.lastRequestTimestamp)) {
+                user.requestsMade = 0;
+            }
+            user.requestsMade++;
+            user.lastRequestTimestamp = now;
+            await user.save();
         }
-
-        if (user.userType === 'BANNED') {
-            return res.status(403).json({ error: 'User is banned. Upgrade to pro to access the service.' });
-        }
-
-        if (user.userType === 'FREE' && user.requestsMade >= 3) {
-            return res.status(403).json({ error: 'Daily limit exceeded for free users. Upgrade to pro for unlimited access.' });
-        }
-
-        const now = Date.now();
-        if (user.lastRequestTimestamp && !isSameDay(now, user.lastRequestTimestamp)) {
-            user.requestsMade = 0;
-        }
-        user.requestsMade++;
-        user.lastRequestTimestamp = now;
-        await user.save();
 
         const imageUrl = await getProLLMResponse(prompt);
         if (imageUrl.error) {
-            console.error("Error generating LLM response:", imageUrl.error);
             return res.status(500).json({ error: imageUrl.error });
         }
 
@@ -250,6 +241,7 @@ app.get('/prompt', async (req, res) => {
         res.status(500).json({ error: 'Internal server error. Please try again later.' });
     }
 });
+
 
 async function getProLLMResponse(prompt) {
     try {
