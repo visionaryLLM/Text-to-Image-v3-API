@@ -204,10 +204,31 @@ app.post('/prompt', async (req, res) => {
             return res.status(403).json({ error: 'Invalid Android ID.' });
         }
 
+        if (uid) {
+            try {
+                const firebaseUser = await admin.auth().getUser(uid);
+                if (!firebaseUser.emailVerified) {
+                    return res.status(403).json({ error: 'Email is not verified.' });
+                }
+            } catch (authError) {
+                if (authError.code === 'auth/user-not-found') {
+                    return res.status(404).json({ error: 'User not found.' });
+                }
+                throw authError;
+            }
+        }
+
         const userByAndroidId = androidId ? await User.findOne({ username: androidId }) : null;
         const userByUid = uid ? await User.findOne({ uid: uid }) : null;
 
-        const user = userByAndroidId || userByUid;
+        let user;
+        if (userByAndroidId && userByUid) {
+            user = userByUid;
+        } else if (userByAndroidId) {
+            user = userByAndroidId;
+        } else {
+            user = userByUid;
+        }
 
         if (!user) {
             const expirationDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
