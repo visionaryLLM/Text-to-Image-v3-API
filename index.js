@@ -6,6 +6,7 @@ import admin from 'firebase-admin';
 import { randomBytes } from 'crypto';
 
 const app = express();
+app.use(express.json());
 
 dotenv.config();
 
