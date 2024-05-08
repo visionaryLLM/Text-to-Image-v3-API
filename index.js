@@ -195,7 +195,7 @@ app.post('/prompt', async (req, res) => {
     const { prompt, ip, androidId, uid } = req.body;
 
     if (!prompt || !ip || (!androidId && !uid)) {
-        return res.status(400).json({ error: 'Prompt, IP address, and either Android ID or UID are required.' });
+        return res.status(400).json({ error: 'Please update your application.' });
     }
 
     try {
