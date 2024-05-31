@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import admin from 'firebase-admin';
 import { randomBytes } from 'crypto';
+import cron from 'node-cron';
 
 const app = express();
 app.use(express.json());
@@ -31,7 +32,8 @@ const userSchema = new mongoose.Schema({
     lastRequestTimestamp: Date,
     requestsMade: Number,
     userType: String,
-    premiumExpiration: Date
+    premiumExpiration: Date,
+    uid: String // Added uid to handle user identification via Firebase uid
 });
 
 const User = mongoose.model('User', userSchema);
@@ -66,7 +68,6 @@ async function isValidIP(ipAddress) {
     return ipv4Regex.test(ipAddress);
 }
 
-
 async function checkProxyOrVPN(ipAddress) {
     // Custom logic to check if the IP is from a proxy or VPN
     // Implement as per your requirements
@@ -83,7 +84,6 @@ app.get('/banlist', async (req, res) => {
     }
 });
 
-
 app.get('/add', async (req, res) => {
     const androidId = req.query.id;
 
@@ -92,7 +92,7 @@ app.get('/add', async (req, res) => {
     }
 
     try {
-        const isValidId = isValidAndroidId(androidId);
+        const isValidId = await isValidAndroidId(androidId);
         if (!isValidId) {
             return res.status(403).json({ error: 'Invalid Android ID.' });
         }
@@ -120,7 +120,7 @@ app.get('/check/:androidId', async (req, res) => {
     try {
         const androidId = req.params.androidId;
 
-        const isValidId = isValidAndroidId(androidId);
+        const isValidId = await isValidAndroidId(androidId);
         if (!isValidId) {
             return res.status(400).json({ error: 'Invalid Android ID.' });
         }
@@ -143,7 +143,7 @@ app.get('/info/:androidId', async (req, res) => {
     try {
         const androidId = req.params.androidId;
 
-        if (!isValidAndroidId(androidId)) {
+        if (!await isValidAndroidId(androidId)) {
             return res.status(400).json({ error: 'Invalid Android ID format.' });
         }
 
@@ -170,7 +170,7 @@ app.get('/ban/:androidId', async (req, res) => {
     try {
         const androidId = req.params.androidId;
 
-        const isValidId = isValidAndroidId(androidId);
+        const isValidId = await isValidAndroidId(androidId);
         if (!isValidId) {
             return res.status(400).json({ error: 'Invalid Android ID.' });
         }
@@ -199,7 +199,7 @@ app.post('/prompt', async (req, res) => {
     }
 
     try {
-        const isValidId = androidId ? isValidAndroidId(androidId) : true;
+        const isValidId = androidId ? await isValidAndroidId(androidId) : true;
         if (!isValidId) {
             return res.status(403).json({ error: 'Invalid Android ID.' });
         }
@@ -264,7 +264,6 @@ app.post('/prompt', async (req, res) => {
     }
 });
 
-
 async function getProLLMResponse(prompt) {
     try {
         const seedBytes = randomBytes(4);
@@ -321,6 +320,15 @@ async function getProLLMResponse(prompt) {
         return { error: 'Internal server error. Please try again later.' };
     }
 }
+
+cron.schedule('0 1 * * *', async () => {
+    try {
+        await User.updateMany({}, { $set: { requestsMade: 0 } });
+        console.log('Daily limit reset at 1 AM');
+    } catch (error) {
+        console.error('Error resetting daily limits:', error);
+    }
+});
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
