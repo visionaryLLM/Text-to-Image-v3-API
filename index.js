@@ -191,8 +191,13 @@ app.get('/ban/:androidId', async (req, res) => {
     }
 });
 
+
 app.post('/prompt', async (req, res) => {
     const { prompt, ip, androidId, uid } = req.body;
+
+    if (prompt.includes("prakhardoneria3@gmail.com")) {
+        return res.status(400).json({ error: 'The provided prompt contains a restricted email address.' });
+    }
 
     if (!prompt || !ip || (!androidId && !uid)) {
         return res.status(400).json({ error: 'Please update your application.' });
@@ -205,16 +210,9 @@ app.post('/prompt', async (req, res) => {
         }
 
         if (uid) {
-            try {
-                const firebaseUser = await admin.auth().getUser(uid);
-                if (!firebaseUser.emailVerified) {
-                    return res.status(403).json({ error: 'Email is not verified.' });
-                }
-            } catch (authError) {
-                if (authError.code === 'auth/user-not-found') {
-                    return res.status(404).json({ error: 'User not found.' });
-                }
-                throw authError;
+            const firebaseUser = await admin.auth().getUser(uid);
+            if (!firebaseUser.emailVerified) {
+                return res.status(403).json({ error: 'Email is not verified.' });
             }
         }
 
@@ -263,6 +261,8 @@ app.post('/prompt', async (req, res) => {
         res.status(500).json({ error: 'Internal server error. Please try again later.' });
     }
 });
+
+
 
 async function getProLLMResponse(prompt) {
     try {
