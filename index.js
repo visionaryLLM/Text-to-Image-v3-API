@@ -195,8 +195,35 @@ app.get('/ban/:androidId', async (req, res) => {
 app.post('/prompt', async (req, res) => {
     const { prompt, ip, androidId, uid } = req.body;
 
-    if (prompt.includes("prakhardoneria3@gmail.com")) {
-        return res.status(400).json({ error: 'The provided prompt contains a restricted email address.' });
+    const blocklist = [
+        "prakhardoneria3@gmail.com", 
+        "gmail.com", 
+        "doneria",  
+        "fuck", 
+        "shit", 
+        "bitch", 
+        "asshole", 
+        "bastard", 
+        "dick", 
+        "cunt", 
+        "whore", 
+        "slut", 
+        "nigger", 
+        "faggot", 
+        "motherfucker",
+        "piss",
+        "twat",
+        "cock",
+        "pussy",
+        "bikini",
+        "breast",
+        "horny",
+        "sexy",
+        
+    ];
+
+    if (blocklist.some(blocked => prompt.toLowerCase().includes(blocked.toLowerCase()))) {
+        return res.status(400).json({ error: 'The provided prompt contains a restricted term.' });
     }
 
     if (!prompt || !ip || (!androidId && !uid)) {
