@@ -222,6 +222,11 @@ app.post('/prompt', async (req, res) => {
         
     ];
 
+
+    if (androidId) {
+            console.log("Android ID:", androidId);
+    }
+
     if (blocklist.some(blocked => prompt.toLowerCase().includes(blocked.toLowerCase()))) {
         return res.status(400).json({ error: 'The provided prompt contains a restricted term.' });
     }
