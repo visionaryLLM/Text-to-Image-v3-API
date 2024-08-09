@@ -219,12 +219,10 @@ app.post('/prompt', async (req, res) => {
         "breast",
         "horny",
         "sexy",
-        
     ];
 
-
     if (androidId) {
-            console.log("Android ID:", androidId);
+        console.log("Android ID:", androidId);
     }
 
     if (blocklist.some(blocked => prompt.toLowerCase().includes(blocked.toLowerCase()))) {
